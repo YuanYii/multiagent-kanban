@@ -1124,3 +1124,71 @@
         [data-theme="dark"] .modal-body select { background: #1e2126; color: var(--text-main); border-color: var(--border-color); }
         [data-theme="dark"] .toast { background: #30363e; color: var(--text-main); border-color: var(--border-color); }
         [data-theme="dark"] .toast-container { color: var(--text-main); }
+
+        /* Row Height Popover Options */
+        #row-height-popover {
+            gap: 2px;
+            padding: 8px;
+        }
+        .rh-option {
+            padding: 8px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            color: var(--text-main);
+            font-size: 13px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            transition: background 0.15s;
+            user-select: none;
+        }
+        .rh-option:hover {
+            background: var(--primary-light);
+            color: var(--primary);
+        }
+        .rh-option.active {
+            background: var(--primary-light);
+            color: var(--primary);
+            font-weight: 600;
+        }
+        .rh-option.active::after {
+            content: "✓";
+            font-size: 12px;
+            font-weight: 700;
+        }
+
+        /* Dark Theme: leftover light borders / hover backgrounds */
+        [data-theme="dark"] .btn:hover {
+            background: #30363e;
+            border-color: var(--border-color);
+        }
+        [data-theme="dark"] select:hover,
+        [data-theme="dark"] .ui-select-trigger:hover {
+            border-color: var(--border-color);
+            background-color: #1e2126;
+        }
+        [data-theme="dark"] .popover-title {
+            border-bottom-color: var(--border-color);
+        }
+        [data-theme="dark"] .modal-actions {
+            border-top-color: var(--border-color);
+        }
+        [data-theme="dark"] .form-item input:hover,
+        [data-theme="dark"] .form-item select:hover,
+        [data-theme="dark"] .form-item textarea:hover {
+            border-color: var(--border-color);
+        }
+        [data-theme="dark"] .form-item select:hover,
+        [data-theme="dark"] .form-item .ui-select-trigger:hover,
+        [data-theme="dark"] .form-item .ui-select-trigger:focus,
+        [data-theme="dark"] .form-item .ui-select-trigger[aria-expanded="true"] {
+            background-color: #1e2126;
+        }
+        [data-theme="dark"] select:disabled {
+            background-color: #1e2126;
+        }
+        [data-theme="dark"] .rh-option:hover,
+        [data-theme="dark"] .rh-option.active {
+            background: var(--primary-light);
+            color: var(--primary);
+        }

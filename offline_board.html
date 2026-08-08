@@ -62,14 +62,17 @@
 
         <!-- Row Height Adjuster -->
         <span class="toolbar-divider" role="separator" aria-orientation="vertical"></span>
-        <div class="toolbar-control">
-            <label class="toolbar-control-label" for="row-height-select">行高</label>
-            <select id="row-height-select" aria-label="表格行高" onchange="changeRowHeight(this.value)">
-                <option value="40">紧凑</option>
-                <option value="55" selected>标准</option>
-                <option value="85">宽松</option>
-                <option value="150">展开</option>
-            </select>
+        <button class="btn" id="row-height-btn" onclick="toggleCustomPopover(event, 'row-height-popover')" aria-haspopup="listbox" aria-expanded="false" title="表格行高">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            行高 <span id="row-height-label">标准</span>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+        </button>
+        <div class="popover" id="row-height-popover" role="listbox" aria-label="表格行高选项" style="min-width:150px;">
+            <div class="popover-title">行高</div>
+            <div class="rh-option" data-h="40" role="option" onclick="pickRowHeight(40, this)">紧凑</div>
+            <div class="rh-option" data-h="55" role="option" onclick="pickRowHeight(55, this)">标准</div>
+            <div class="rh-option" data-h="85" role="option" onclick="pickRowHeight(85, this)">宽松</div>
+            <div class="rh-option" data-h="150" role="option" onclick="pickRowHeight(150, this)">展开</div>
         </div>
 
         <input type="text" class="search-input" id="search-box" placeholder="搜索编号/任务名/负责人/备注..." oninput="onSearch()">

@@ -892,13 +892,31 @@
         function initRowHeight() {
             let saved = null;
             try { saved = localStorage.getItem(ROW_HEIGHT_KEY); } catch (e) { /* storage blocked */ }
-            const select = document.getElementById('row-height-select');
-            const allowed = select ? Array.from(select.options).map(o => o.value) : [];
-            const value = (saved && (!allowed.length || allowed.indexOf(saved) !== -1))
+            const allowed = Object.keys(ROW_HEIGHT_PRESETS);
+            const value = (saved && allowed.indexOf(saved) !== -1)
                 ? saved
                 : String(ROW_HEIGHT_DEFAULT);
-            if (select) select.value = value;
             changeRowHeight(value);
+            updateRowHeightBtn(value);
+        }
+
+        const ROW_HEIGHT_LABELS = { 40: '紧凑', 55: '标准', 85: '宽松', 150: '展开' };
+
+        // Sync the toolbar button label + highlight the active option
+        function updateRowHeightBtn(h) {
+            const label = document.getElementById('row-height-label');
+            if (label) label.textContent = ROW_HEIGHT_LABELS[h] || ROW_HEIGHT_LABELS[ROW_HEIGHT_DEFAULT];
+            document.querySelectorAll('#row-height-popover .rh-option').forEach(o => {
+                o.classList.toggle('active', o.dataset.h === String(h));
+            });
+        }
+
+        function pickRowHeight(h) {
+            changeRowHeight(h);
+            updateRowHeightBtn(h);
+            closeAllCustomPopovers();
+            const btn = document.getElementById('row-height-btn');
+            if (btn) btn.setAttribute('aria-expanded', 'false');
         }
 
         // Tab Switching Logic
