@@ -19,6 +19,7 @@
             }
         });
 
+        initTheme();
         initBoardTitle();
         initRowHeight();
         // After initRowHeight so the trigger picks up the restored value.

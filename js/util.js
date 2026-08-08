@@ -72,3 +72,107 @@
             const st = getBadgeStyle(type, value);
             return `<div class="tag-select" data-type="${type}" ${attrs || ''} data-value="${esc(value)}" style="background:${st.bg};color:${st.text};border-color:rgba(0,0,0,0.06)">${badgeInner(type, value)}</div>`;
         }
+
+        /* ============================================================
+           Sunrise/Sunset Auto Theme
+           NOAA 标准天文学算法本地计算日出日落 + 浅/深色主题切换
+           ============================================================ */
+        const DEFAULT_LAT = 39.9042;   // 默认纬度：北京（北纬为正），按需修改
+        const DEFAULT_LNG = 116.4074;  // 默认经度：北京（东经为正），按需修改
+        const THEME_KEY = 'board_theme'; // 'light' | 'dark'；无值 = 按日落自动
+
+        /**
+         * 纯本地计算日出日落时间（NOAA 标准天文学算法）
+         * @param {Date} date - 系统当前时间对象
+         * @param {number} lat - 纬度 (北纬为正，南纬为负)
+         * @param {number} lng - 经度 (东经为正，西经为负)
+         */
+        function getSunTimesLocally(date, lat, lng) {
+            const D2R = Math.PI / 180;
+            const R2D = 180 / Math.PI;
+
+            // 1. 获取当年的第几天 (Day of year)
+            const startOfYear = new Date(date.getFullYear(), 0, 0);
+            const dayOfYear = Math.floor((date - startOfYear) / 86400000);
+
+            // 2. 太阳天顶角标准修正值（日出日落折射角 90.833 度）
+            const zenith = 90.833;
+
+            function calculate(isSunrise) {
+                const lngHour = lng / 15;
+                const t = dayOfYear + ((isSunrise ? 6 : 18) - lngHour) / 24;
+
+                // 太阳平黄经 M 与真黄经 L
+                const M = 0.9856 * t - 3.289;
+                let L = M + 1.916 * Math.sin(M * D2R) + 0.02 * Math.sin(2 * M * D2R) + 282.634;
+                L = (L + 360) % 360;
+
+                // 太阳赤纬 Dec
+                const sinDec = 0.39782 * Math.sin(L * D2R);
+                const cosDec = Math.cos(Math.asin(sinDec));
+
+                // 太阳赤经 RA
+                let RA = R2D * Math.atan(0.91764 * Math.tan(L * D2R));
+                RA = (RA + 360) % 360;
+                RA = (RA + (Math.floor(L / 90) * 90 - Math.floor(RA / 90) * 90)) / 15;
+
+                // 当地太阳时角 H
+                const cosH = (Math.cos(zenith * D2R) - sinDec * Math.sin(lat * D2R)) / (cosDec * Math.cos(lat * D2R));
+
+                if (cosH > 1) return "极夜 (无日出/日落)";
+                if (cosH < -1) return "极昼 (无日出/日落)";
+
+                const H = isSunrise ? 360 - R2D * Math.acos(cosH) : R2D * Math.acos(cosH);
+                const H_hours = H / 15;
+
+                // 平均太阳时与世界协调时 (UTC)
+                const T = H_hours + RA - 0.06571 * t - 6.622;
+                let UT = T - lngHour;
+                UT = (UT + 24) % 24;
+
+                // 转为本地系统时间
+                const resultDate = new Date(date);
+                resultDate.setUTCHours(Math.floor(UT), Math.floor((UT % 1) * 60), Math.round((((UT % 1) * 60) % 1) * 60));
+                return resultDate;
+            }
+
+            return {
+                sunrise: calculate(true),
+                sunset: calculate(false)
+            };
+        }
+
+        // 昼夜判断：日出~日落之间为浅色（白昼），其余时段（含凌晨日出前）为深色
+        function isNightBySun(date) {
+            const t = getSunTimesLocally(date, DEFAULT_LAT, DEFAULT_LNG);
+            if (typeof t.sunrise === 'string') return false; // 极昼 → 浅色
+            if (typeof t.sunset === 'string') return true;   // 极夜 → 深色
+            const now = date.getTime();
+            return now < t.sunrise.getTime() || now >= t.sunset.getTime();
+        }
+
+        function applyTheme(theme) {
+            document.documentElement.dataset.theme = theme;
+            const btn = document.getElementById('theme-toggle-btn');
+            const label = document.getElementById('theme-toggle-label');
+            if (btn) btn.setAttribute('aria-label', theme === 'dark' ? '切换到浅色主题' : '切换到深色主题');
+            if (label) label.textContent = theme === 'dark' ? '浅色' : '深色';
+        }
+
+        function initTheme() {
+            let theme;
+            try {
+                const saved = localStorage.getItem(THEME_KEY);
+                theme = (saved === 'light' || saved === 'dark') ? saved : (isNightBySun(new Date()) ? 'dark' : 'light');
+            } catch (e) {
+                theme = isNightBySun(new Date()) ? 'dark' : 'light';
+            }
+            applyTheme(theme);
+        }
+
+        function toggleTheme() {
+            const cur = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+            applyTheme(cur);
+            try { localStorage.setItem(THEME_KEY, cur); } catch (e) {}
+            showToast(cur === 'dark' ? '已切换为深色主题' : '已切换为浅色主题');
+        }

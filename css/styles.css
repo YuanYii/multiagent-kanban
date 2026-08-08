@@ -1045,3 +1045,82 @@
             from { opacity: 0; transform: translateY(10px); }
             to { opacity: 1; transform: translateY(0); }
         }
+        /* ============================================================
+           Dark Theme
+           Auto: 日出~日落之间浅色，其余时段深色（NOAA 本地算法，util.js）
+           Manual: 工具栏切换按钮，选择持久化到 localStorage
+           ============================================================ */
+        [data-theme="dark"] {
+            --bg-color: #17191c;
+            --col-bg: #1e2126;
+            --card-bg: #262a31;
+            --text-main: #e6e8eb;
+            --text-muted: #8b9199;
+            --border-color: #363b43;
+            --primary: #6b96ff;
+            --primary-hover: #8aadff;
+            --primary-light: #25314d;
+            --danger: #f76560;
+            --success: #3dd68c;
+            --warning: #ff9f43;
+
+            --tag-status-bg: #3a2c1a;
+            --tag-status-text: #ffb15c;
+            --tag-person-bg: #1c3328;
+            --tag-person-text: #5cd68c;
+
+            --col-pm-bg: #1c3328;
+            --col-arch-bg: #1d2a4a;
+            --col-dev-bg: #3a2c1a;
+            --col-rev-bg: #1d2a4a;
+            --col-qa-bg: #3a1f35;
+            --col-doc-bg: #3a2c1a;
+            --col-ops-bg: #262a31;
+        }
+
+        [data-theme="dark"] body { background-color: var(--bg-color); color: var(--text-main); }
+        [data-theme="dark"] .header { background: var(--card-bg); }
+        [data-theme="dark"] .toolbar { background: #1c1f23; }
+        [data-theme="dark"] .board-title:focus { background: var(--card-bg); }
+        [data-theme="dark"] .tab { color: var(--text-muted); }
+        [data-theme="dark"] .tab:hover { color: var(--text-main); }
+        [data-theme="dark"] .tab.active { color: var(--primary); border-bottom-color: var(--primary); }
+        [data-theme="dark"] .btn { background: var(--card-bg); }
+        [data-theme="dark"] .btn:hover { background: #30363e; }
+        [data-theme="dark"] .btn.primary-btn { background: var(--primary); color: #fff; }
+        [data-theme="dark"] .btn.primary-btn:hover { background: var(--primary-hover); }
+        [data-theme="dark"] .search-input { background: var(--card-bg); color: var(--text-main); }
+        [data-theme="dark"] .toolbar-control > select,
+        [data-theme="dark"] select { background-color: var(--card-bg); color: var(--text-main); color-scheme: dark; }
+        [data-theme="dark"] select option,
+        [data-theme="dark"] select optgroup { background-color: #1c1f23; color: var(--text-main); }
+        [data-theme="dark"] .toolbar-control-label { color: var(--text-muted); }
+        [data-theme="dark"] .popover { background: #23272e; }
+        [data-theme="dark"] .popover-title { color: var(--text-main); }
+        [data-theme="dark"] .checkbox-label { color: var(--text-main); }
+        [data-theme="dark"] .form-item label { color: var(--text-muted); }
+        [data-theme="dark"] .form-item input,
+        [data-theme="dark"] .form-item select,
+        [data-theme="dark"] .form-item textarea,
+        [data-theme="dark"] .ui-select-trigger { background: #1e2126; color: var(--text-main); border-color: var(--border-color); }
+        [data-theme="dark"] .ui-select-panel { background: #23272e; }
+        [data-theme="dark"] .ui-select-panel .ui-select-option:hover { background: #30363e; }
+        [data-theme="dark"] .column { border-color: var(--border-color); }
+        [data-theme="dark"] .col-header.theme-purple { background: #2a1f3d; }
+        [data-theme="dark"] .card { box-shadow: 0 1px 3px rgba(0,0,0,0.35); }
+        [data-theme="dark"] .card:hover { border-color: #4a515c; box-shadow: 0 4px 12px rgba(0,0,0,0.45); }
+        [data-theme="dark"] .card-sub,
+        [data-theme="dark"] .card-meta { color: var(--text-muted); }
+        [data-theme="dark"] .table-container { background: var(--card-bg); }
+        [data-theme="dark"] .data-table th { background: #1e2126; color: #9aa0a8; }
+        [data-theme="dark"] .data-table td { color: var(--text-main); }
+        [data-theme="dark"] .data-table tbody tr:hover td { background: #23272e; }
+        [data-theme="dark"] .modal-overlay { background: rgba(0,0,0,0.55); }
+        [data-theme="dark"] .modal { background: #23272e; }
+        [data-theme="dark"] .modal-header { border-bottom-color: var(--border-color); color: var(--text-main); }
+        [data-theme="dark"] .modal-body { color: var(--text-main); }
+        [data-theme="dark"] .modal-body input,
+        [data-theme="dark"] .modal-body textarea,
+        [data-theme="dark"] .modal-body select { background: #1e2126; color: var(--text-main); border-color: var(--border-color); }
+        [data-theme="dark"] .toast { background: #30363e; color: var(--text-main); border-color: var(--border-color); }
+        [data-theme="dark"] .toast-container { color: var(--text-main); }
