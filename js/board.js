@@ -7,7 +7,7 @@
 
         // Person Multi-Select State & Logic
         let selectedPersons = new Set();
-        const allPersons = ['严经理', '钱架构', '李开发', '曹艾', '周审查', '章测试', '李文通', '吕改特'];
+        const allPersons = ['严经理', '钱架构', '李开发', '前端开发', '曹艾', '周审查', '章测试', '李文通', '吕改特'];
 
         function renderPersonCheckboxList() {
             const container = document.getElementById('person-checkbox-list');
@@ -97,7 +97,11 @@
         function verifyFieldTableParity() {
             const ths = Array.from(document.querySelectorAll('#main-data-table thead th'));
             // skip the leading checkbox column and the trailing 操作 column
-            const dataThs = ths.slice(1, -1).map(th => (th.textContent || '').trim());
+            const dataThs = ths.slice(1, -1).map(th => {
+                const clone = th.cloneNode(true);
+                clone.querySelectorAll('.resizer, .row-resizer').forEach(el => el.remove());
+                return (clone.textContent || '').trim();
+            });
             const expected = BOARD_FIELDS.map(f => f.th);
             const ok = dataThs.length === expected.length && dataThs.every((t, i) => t === expected[i]);
             if (!ok) {
@@ -111,6 +115,7 @@
             { name: "严经理", theme: "pm" },
             { name: "钱架构", theme: "arch" },
             { name: "李开发", theme: "dev" },
+            { name: "前端开发", theme: "indigo" },
             { name: "曹艾", theme: "purple" },
             { name: "周审查", theme: "rev" },
             { name: "章测试", theme: "qa" },
@@ -511,6 +516,26 @@
             }
         }
 
+        function appendProcessLog(card, logActionText) {
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const day = String(now.getDate()).padStart(2, '0');
+            const hours = String(now.getHours()).padStart(2, '0');
+            const mins = String(now.getMinutes()).padStart(2, '0');
+            const secs = String(now.getSeconds()).padStart(2, '0');
+            const nowStr = `${year}-${month}-${day} ${hours}:${mins}:${secs}`;
+            const logLine = `[${nowStr}] ${logActionText}`;
+
+            if (card.process) {
+                card.process = card.process.trim() + '\n' + logLine;
+            } else {
+                card.process = logLine;
+            }
+        }
+
+        let pendingTransition = null;
+
         function drop(event) {
             event.preventDefault();
             const list = event.currentTarget;
@@ -523,41 +548,122 @@
             const colValue = column.getAttribute('data-col');
             const card = rawCardsData.find(c => c.id === cardId);
             if (!card || !groupField || colValue === '未分类') return;
+
             if (card[groupField] === colValue) return;
-            card[groupField] = colValue;
-            saveStorageData();
-            applyFilters();
-            showToast(`已移动 ${cardId} → ${colValue}`);
+
+            let newHandler = card.handler;
+            if (groupField === 'assignee') {
+                newHandler = colValue;
+            } else if (groupField === 'status') {
+                const statusRoleMap = {
+                    '审查中': '周审查',
+                    '测试中': '章测试',
+                    '进行中': '李开发',
+                    '处理中': '李开发',
+                    '已完成': '严经理'
+                };
+                if (statusRoleMap[colValue]) {
+                    newHandler = statusRoleMap[colValue];
+                }
+            }
+
+            pendingTransition = {
+                cardId,
+                groupField,
+                oldVal: card[groupField],
+                newVal: colValue,
+                newHandler
+            };
+
+            const banner = document.getElementById('transition-change-banner');
+            if (banner) {
+                const fieldName = groupField === 'status' ? '状态' : (groupField === 'assignee' ? '负责人' : '阶段');
+                banner.innerHTML = `
+                    <div style="font-weight:600; font-size:14px; margin-bottom:4px; color:var(--text-main);">
+                        [${esc(card.id)}] ${esc(card.name)}
+                    </div>
+                    <div>
+                        ${fieldName}: <span style="text-decoration:line-through; color:var(--text-muted);">${esc(card[groupField] || '未设定')}</span>
+                        &nbsp;&rarr;&nbsp;
+                        <strong style="color:var(--primary); font-size:14px;">${esc(colValue)}</strong>
+                        ${newHandler ? `<span class="tag tag-stage" style="margin-left:8px;">处理人移交至: ${esc(newHandler)}</span>` : ''}
+                    </div>
+                `;
+            }
+
+            const commentInput = document.getElementById('transition-comment-input');
+            if (commentInput) commentInput.value = '';
+
+            document.getElementById('transition-modal').classList.add('show');
+            setTimeout(() => { if (commentInput) commentInput.focus(); }, 100);
         }
 
-        // Render Table View with Summary Foot & Selection Checkboxes
-        function renderTable() {
-            const tbody = document.getElementById("table-body");
-            if (!tbody) return;
-            tbody.innerHTML = "";
+        function cancelTransition() {
+            pendingTransition = null;
+            document.getElementById('transition-modal').classList.remove('show');
+        }
 
-            if (currentCardsData.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="17" style="text-align:center; color:var(--text-muted); padding:40px 0;">无匹配数据，请调整筛选 / 搜索条件</td></tr>`;
-                updateBatchDeleteBtn();
+        function confirmTransition() {
+            if (!pendingTransition) {
+                cancelTransition();
                 return;
             }
+
+            const { cardId, groupField, oldVal, newVal, newHandler } = pendingTransition;
+            const card = rawCardsData.find(c => c.id === cardId);
+            if (!card) {
+                cancelTransition();
+                return;
+            }
+
+            card[groupField] = newVal;
+            if (newHandler) {
+                card.handler = newHandler;
+            }
+
+            const userComment = (document.getElementById('transition-comment-input').value || '').trim();
+            const fieldName = groupField === 'status' ? '状态' : (groupField === 'assignee' ? '负责人' : '阶段');
+            const defaultAction = `[看板拖拽联动] 将${fieldName}由【${oldVal || '未设定'}】更新至【${newVal}】${newHandler ? `(处理人: ${newHandler})` : ''}`;
+            const logMsg = userComment ? `${defaultAction} — 说明: ${userComment}` : defaultAction;
+
+            appendProcessLog(card, logMsg);
+            saveStorageData();
+            applyFilters();
+
+            cancelTransition();
+            showToast(`已成功流转 ${cardId} → ${newVal}`);
+        }
+
+        function onTableRowClick(event, cardId) {
+            // 若点击的是复选框或下拉选择面板触发器，不拦截其原生行为
+            if (event.target.closest('input[type="checkbox"]') || event.target.closest('.tag-select') || event.target.closest('.ui-select-trigger') || event.target.closest('.row-resizer')) {
+                return;
+            }
+            openTaskDetail(cardId);
+        }
+
+        function renderTable() {
+            renderTableBody(currentCardsData);
+        }
+
+        function renderTableBody(currentCardsData) {
+            const tbody = document.getElementById('table-body');
+            tbody.innerHTML = '';
 
             currentCardsData.forEach((card, idx) => {
                 const isSelected = selectedTaskIds.has(card.id);
                 const savedH = rowHeights[card.id];
-                // Replay a manual drag as row-scoped custom properties so the
-                // cell clamp is restored too (a bare inline height left the
-                // content clamped at the preset line count).
                 const trStyle = savedH ? rowHeightVars(savedH) : '';
 
                 const tr = `
-                    <tr data-id="${esc(card.id)}" style="${trStyle}"><td style="text-align:center;"><input type="checkbox" class="row-cb" value="${esc(card.id)}" ${isSelected ? 'checked' : ''} onchange="toggleSelectRow('${esc(card.id)}', this.checked)"></td>
+                    <tr data-id="${esc(card.id)}" style="${trStyle}; cursor:pointer;" class="clickable-row" onclick="onTableRowClick(event, '${esc(card.id)}')">
+                        <td style="text-align:center;"><input type="checkbox" class="row-cb" value="${esc(card.id)}" ${isSelected ? 'checked' : ''} onchange="toggleSelectRow('${esc(card.id)}', this.checked)"></td>
                         <td style="font-weight:600; color:var(--text-muted); position:relative;">${idx + 1}<div class="row-resizer" title="拖拽调节行高"></div></td>
-                        <td><strong style="color:var(--primary); cursor:pointer;" onclick="openTaskDetail('${esc(card.id)}')">${esc(card.id)}</strong></td>
+                        <td><strong style="color:var(--primary);">${esc(card.id)}</strong></td>
                         <td>${esc(card.wbs) || '-'}</td>
                         <td><small style="color:var(--text-muted);">${esc(card.pretask) || '-'}</small></td>
                         <td><div class="cell-content">${esc(card.stage)}<br><small style="color:var(--text-muted)">${esc(card.wp)}</small></div></td>
-                        <td><div class="cell-content" style="cursor:pointer;" onclick="openTaskDetail('${esc(card.id)}')">${esc(card.name)}</div></td>
+                        <td><div class="cell-content" style="font-weight:600;">${esc(card.name)}</div></td>
                         <td>
                             ${tagSelectTriggerHTML('status', card.status || '待开始', `data-card-id="${esc(card.id)}"`)}
                         </td>
@@ -571,7 +677,7 @@
                         <td><small style="color:#4e5969;">${esc(card.end_date) || '-'}</small></td>
                         <td><div class="cell-content" style="font-size:12px; color:#4e5969;">${esc(card.remarks) || '-'}</div></td>
                         <td><div class="cell-content" style="font-size:12px; color:#4e5969;">${esc(card.process) || '-'}</div></td>
-                        <td><button class="btn sm" onclick="openTaskDetail('${esc(card.id)}')">编辑</button></td>
+                        <td><button class="btn sm" onclick="openTaskDetail('${esc(card.id)}')">详情</button></td>
                     </tr>
                 `;
                 tbody.insertAdjacentHTML('beforeend', tr);
@@ -679,28 +785,14 @@
             document.getElementById('search-box').value = '';
             document.getElementById('filter-status').value = '';
             document.getElementById('filter-assignee').value = '';
-            selectedPersons.clear();
-            renderPersonCheckboxList();
-            refreshUiSelects();
-            applyFilters();
-            closeAllCustomPopovers();
-        }
-
-        function resetAllFiltersAndData() {
-            document.getElementById('search-box').value = '';
-            document.getElementById('filter-status').value = '';
-            document.getElementById('filter-assignee').value = '';
             document.getElementById('sort-field').value = 'seq';
             document.getElementById('sort-order').value = 'asc';
             selectedPersons.clear();
             renderPersonCheckboxList();
             refreshUiSelects();
-            closeAllCustomPopovers();
-            // Restore initial sample data and drop persisted storage
-            rawCardsData = JSON.parse(JSON.stringify(defaultCardsData));
-            localStorage.removeItem('offline_board_cards_v3');
             applyFilters();
-            showToast('已重置所有筛选与数据至初始示例！');
+            closeAllCustomPopovers();
+            showToast('已重置所有筛选条件！');
         }
 
         function applySort() {
@@ -731,8 +823,10 @@
         // Quick Inline Updates from Data Table
         function quickUpdateStatus(cardId, newStatus) {
             const card = rawCardsData.find(c => c.id === cardId);
-            if (card) {
+            if (card && card.status !== newStatus) {
+                const oldStatus = card.status;
                 card.status = newStatus;
+                appendProcessLog(card, `[快捷状态变更] 状态由【${oldStatus || '未设定'}】调整为【${newStatus}】`);
                 saveStorageData();
                 applyFilters();
                 showToast(`已更新 ${card.id} 状态为: ${newStatus}`);
@@ -741,8 +835,10 @@
 
         function quickUpdateAssignee(cardId, newAssignee) {
             const card = rawCardsData.find(c => c.id === cardId);
-            if (card) {
+            if (card && card.assignee !== newAssignee) {
+                const oldAssignee = card.assignee;
                 card.assignee = newAssignee;
+                appendProcessLog(card, `[快捷负责人变更] 负责人由【${oldAssignee || '未设定'}】变更为【${newAssignee}】`);
                 saveStorageData();
                 applyFilters();
                 showToast(`已更新 ${card.id} 负责人为: ${newAssignee}`);
@@ -774,13 +870,46 @@
             document.getElementById('batch-delete-btn').style.display = count > 0 ? 'inline-flex' : 'none';
         }
 
+        let pendingConfirmAction = null;
+
+        function openCustomConfirm(title, message, onConfirm) {
+            const titleEl = document.getElementById('confirm-modal-title');
+            const msgEl = document.getElementById('confirm-modal-msg');
+            const okBtn = document.getElementById('confirm-modal-ok-btn');
+
+            if (titleEl) {
+                titleEl.innerHTML = `
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--danger)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                    ${esc(title || '操作确认')}
+                `;
+            }
+            if (msgEl) msgEl.innerHTML = esc(message);
+
+            pendingConfirmAction = onConfirm;
+            if (okBtn) {
+                okBtn.onclick = () => {
+                    if (pendingConfirmAction) pendingConfirmAction();
+                    closeConfirmModal();
+                };
+            }
+
+            document.getElementById('confirm-modal').classList.add('show');
+        }
+
+        function closeConfirmModal() {
+            pendingConfirmAction = null;
+            document.getElementById('confirm-modal').classList.remove('show');
+        }
+
         function batchDeleteRecords() {
-            if (!confirm(`确定要批量删除选中的 ${selectedTaskIds.size} 条任务记录吗？`)) return;
-            rawCardsData = rawCardsData.filter(c => !selectedTaskIds.has(c.id));
-            selectedTaskIds.clear();
-            saveStorageData();
-            applyFilters();
-            showToast('已完成批量删除操作！');
+            if (selectedTaskIds.size === 0) return;
+            openCustomConfirm('批量删除确认', `确定要批量删除选中的 ${selectedTaskIds.size} 条任务记录吗？删除后无法恢复。`, () => {
+                rawCardsData = rawCardsData.filter(c => !selectedTaskIds.has(c.id));
+                selectedTaskIds.clear();
+                saveStorageData();
+                applyFilters();
+                showToast('已完成批量删除操作！');
+            });
         }
 
         // Field Config Listener
@@ -1003,7 +1132,7 @@
             const id = document.getElementById('new-id').value.trim();
             const name = document.getElementById('new-name').value.trim();
             if (!id || !name) {
-                alert('请填写任务编号和任务名称！');
+                showToast('⚠️ 请填写任务编号和任务名称！');
                 return;
             }
             const newCard = {
@@ -1028,26 +1157,165 @@
             showToast(`成功创建任务 ${id}！`);
         }
 
-        // Task Detail & Editing Modal Controls
+        let isTaskEditMode = false;
+
+        function toggleTaskEditMode(forceEdit) {
+            if (typeof forceEdit === 'boolean') {
+                isTaskEditMode = forceEdit;
+            } else {
+                isTaskEditMode = !isTaskEditMode;
+            }
+
+            const readBox = document.getElementById('detail-read-container');
+            const editBox = document.getElementById('detail-edit-container');
+            const toggleBtn = document.getElementById('toggle-detail-edit-btn');
+            const saveBtn = document.getElementById('detail-save-btn');
+            const deleteBtn = document.getElementById('detail-delete-btn');
+
+            if (isTaskEditMode) {
+                if (readBox) readBox.style.display = 'none';
+                if (editBox) editBox.style.display = 'flex';
+                if (toggleBtn) toggleBtn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:4px; vertical-align:-1px;"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>切换为查看详情';
+                if (saveBtn) saveBtn.style.display = 'inline-flex';
+                if (deleteBtn) deleteBtn.style.display = 'inline-flex';
+            } else {
+                if (readBox) readBox.style.display = 'flex';
+                if (editBox) editBox.style.display = 'none';
+                if (toggleBtn) toggleBtn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:4px; vertical-align:-1px;"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>切换为编辑模式';
+                if (saveBtn) saveBtn.style.display = 'none';
+                if (deleteBtn) deleteBtn.style.display = 'none';
+            }
+        }
+
+        // Task Detail & Audit Logs Traceability Modal Controls
         function openTaskDetail(cardId) {
             const card = rawCardsData.find(c => c.id === cardId);
             if (!card) return;
 
-            document.getElementById('edit-original-id').value = card.id;
-            document.getElementById('edit-id').value = card.id;
-            document.getElementById('edit-seq').value = '#' + (card.seq || '-');
-            document.getElementById('edit-name').value = card.name || '';
-            document.getElementById('edit-wp').value = card.wp || '';
-            document.getElementById('edit-wbs').value = card.wbs || '';
-            document.getElementById('edit-assignee').value = card.assignee || '李开发';
-            document.getElementById('edit-status').value = card.status || '待开始';
-            document.getElementById('edit-est').value = card.est_hours || 0;
-            document.getElementById('edit-act').value = card.act_hours || 0;
-            document.getElementById('edit-process').value = card.process || card.remarks || '';
+            // 1. Populate Edit Mode Inputs
+            const editId = document.getElementById('edit-id');
+            const editSeq = document.getElementById('edit-seq');
+            const editName = document.getElementById('edit-name');
+            const editWp = document.getElementById('edit-wp');
+            const editWbs = document.getElementById('edit-wbs');
+            const editEst = document.getElementById('edit-est');
+            const editAct = document.getElementById('edit-act');
+            const editProcess = document.getElementById('edit-process');
+            const editOriginalId = document.getElementById('edit-original-id');
+
+            if (editId) editId.value = card.id;
+            if (editSeq) editSeq.value = card.seq;
+            if (editName) editName.value = card.name;
+            if (editWp) editWp.value = card.wp || card.stage || '';
+            if (editWbs) editWbs.value = card.wbs || '';
+            if (editEst) editEst.value = card.est_hours || 0;
+            if (editAct) editAct.value = card.act_hours || 0;
+            if (editProcess) editProcess.value = card.process || card.remarks || '';
+            if (editOriginalId) editOriginalId.value = card.id;
+
+            const editAssigneeInput = document.getElementById('edit-assignee');
+            if (editAssigneeInput) editAssigneeInput.value = card.assignee || '李开发';
+
+            const editStatusInput = document.getElementById('edit-status');
+            if (editStatusInput) editStatusInput.value = card.status || '待开始';
 
             refreshModalTagSelectors();
+
+            // 2. Populate Read Mode View (Header Card & Attributes Grid)
+            const headCard = document.getElementById('detail-header-card');
+            if (headCard) {
+                headCard.innerHTML = `
+                    <div class="detail-header-title">
+                        <span style="color:var(--primary); font-family:monospace;">[${esc(card.id)}]</span>
+                        <span>${esc(card.name || '未命名任务')}</span>
+                    </div>
+                    <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+                        <span class="tag tag-status">${esc(card.status || '待开始')}</span>
+                        <span class="tag tag-person">负责人: ${esc(card.assignee || '未分配')}</span>
+                        ${card.handler ? `<span class="tag tag-stage">当前处理人: ${esc(card.handler)}</span>` : ''}
+                        ${card.wbs ? `<span class="tag" style="background:#e8f0fe; color:#2b5cd9;">WBS: ${esc(card.wbs)}</span>` : ''}
+                    </div>
+                `;
+            }
+
+            const attrGrid = document.getElementById('detail-attr-grid');
+            if (attrGrid) {
+                attrGrid.innerHTML = `
+                    <div class="detail-item">
+                        <span class="detail-label">阶段 / 工作包</span>
+                        <span class="detail-value">${esc(card.wp || card.stage || '-')}</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">前置任务依赖</span>
+                        <span class="detail-value">${esc(card.pre_tasks || card.prerequisite || '无前置')}</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">工时消耗 (预估/实际)</span>
+                        <span class="detail-value">${card.est_hours || 0}h / ${card.act_hours || 0}h</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">时间周期</span>
+                        <span class="detail-value">${esc(card.start_time || '-')} ~ ${esc(card.end_time || '-')}</span>
+                    </div>
+                    <div class="detail-item" style="grid-column: 1 / -1;">
+                        <span class="detail-label">核心备注</span>
+                        <span class="detail-value" style="font-weight:400;">${esc(card.remarks || '暂无备注')}</span>
+                    </div>
+                `;
+            }
+
+            // 3. Populate Timeline Audit Logs & Defect Trace (Multi-field Aggregator)
+            const timelineList = document.getElementById('detail-timeline-list');
+            if (timelineList) {
+                timelineList.innerHTML = '';
+                
+                let rawLogs = [];
+                if (card.process) rawLogs.push(card.process);
+                if (card.history && card.history !== card.process) rawLogs.push(card.history);
+                if (card.remarks && !card.process) rawLogs.push(`[备注记录] ${card.remarks}`);
+
+                let lines = rawLogs.join('\n').split('\n').map(l => l.trim()).filter(Boolean);
+                
+                // 智能保底推演：若没有任何显式日志行，自动基于元数据推导首条初始化流转记录
+                if (lines.length === 0) {
+                    lines = [
+                        `[系统初始化] 任务 [${card.id}] 已推入看板，当前状态【${card.status || '待开始'}】，负责人: ${card.assignee || '未分配'}`
+                    ];
+                    if (card.remarks) lines.push(`[说明/备注] ${card.remarks}`);
+                }
+
+                lines.forEach(line => {
+                    const item = document.createElement('div');
+                    const isDefect = line.includes('DEF-') || line.includes('DEFECT') || line.includes('退回') || line.includes('阻塞');
+                    item.className = `timeline-item ${isDefect ? 'defect' : ''}`;
+                    
+                    let timeStr = '';
+                    let contentStr = line;
+                    const timeMatch = line.match(/^\[(\d{4}-\d{2}-\d{2}[^\]]*)\]\s*(.*)$/);
+                    if (timeMatch) {
+                        timeStr = timeMatch[1];
+                        contentStr = timeMatch[2];
+                    }
+
+                    item.innerHTML = `
+                        ${timeStr ? `<div class="timeline-time"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px; margin-right:3px;"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>${esc(timeStr)}</div>` : ''}
+                        <div class="timeline-content">${esc(contentStr)}</div>
+                    `;
+                    timelineList.appendChild(item);
+                });
+            }
+
+            // Default to Read Mode
+            toggleTaskEditMode(false);
             document.getElementById('detail-modal').classList.add('show');
-            setTimeout(() => { const el = document.getElementById('edit-name'); if (el) el.focus(); }, 50);
+
+            // 自动将 Timeline 流转记录滑至最底部，保证优先展示最新的流转与移交数据
+            setTimeout(() => {
+                const timelineList = document.getElementById('detail-timeline-list');
+                if (timelineList) {
+                    timelineList.scrollTop = timelineList.scrollHeight;
+                }
+            }, 60);
         }
 
         function closeDetailModal() {
@@ -1076,13 +1344,13 @@
 
         function deleteCurrentTask() {
             const cardId = document.getElementById('edit-original-id').value;
-            if (confirm(`确认删除任务 ${cardId} 吗？删除后不可恢复。`)) {
+            openCustomConfirm('删除任务确认', `确认要永久删除任务 [${cardId}] 吗？删除后不可恢复。`, () => {
                 rawCardsData = rawCardsData.filter(c => c.id !== cardId);
                 saveStorageData();
                 applyFilters();
                 closeDetailModal();
                 showToast(`已删除任务 ${cardId}`);
-            }
+            });
         }
 
                 // Column & Row Resizable Drag Event Handlers
