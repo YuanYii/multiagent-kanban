@@ -11,6 +11,22 @@
 - **零成本使用**：无服务器、无构建、无第三方依赖，双击 HTML 即可用，数据存本地
 - **局域网分享**：一条命令启动静态服务，同网段设备浏览器直接访问
 
+## 快速开始
+
+**本机使用**：直接用浏览器打开 `offline_board.html`。
+
+**局域网分享**：
+
+```bash
+./start.sh            # 默认端口 28888
+./start.sh 9000       # 自定义端口
+```
+
+- 本机访问：`http://127.0.0.1:28888/offline_board.html`
+- 局域网访问：`http://<本机IP>:28888/offline_board.html`（查 IP：`ipconfig getifaddr en0`）
+- 停止：Ctrl+C；Mac 重启后重新执行 `./start.sh`
+- 其他设备打不开时，检查 macOS 防火墙是否放行 Python
+
 ## 界面预览
 
 **数据表格视图** —— 89 条任务明细，支持筛选、排序、搜索、批量操作：
@@ -46,22 +62,6 @@
 | 数据持久化 | 自动读取 `board.json` / `json/kanban_meta.json` 配置，改动实时同步浏览器 localStorage |
 | 主题切换 | 日出日落自动主题 + 浅色/深色手动切换 |
 | 一键重置 | 恢复内置示例数据 |
-
-## 快速开始
-
-**本机使用**：直接用浏览器打开 `offline_board.html`。
-
-**局域网分享**：
-
-```bash
-./start.sh            # 默认端口 28888
-./start.sh 9000       # 自定义端口
-```
-
-- 本机访问：`http://127.0.0.1:28888/offline_board.html`
-- 局域网访问：`http://<本机IP>:28888/offline_board.html`（查 IP：`ipconfig getifaddr en0`）
-- 停止：Ctrl+C；Mac 重启后重新执行 `./start.sh`
-- 其他设备打不开时，检查 macOS 防火墙是否放行 Python
 
 ## 数据与配置说明
 
