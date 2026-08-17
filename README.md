@@ -25,6 +25,10 @@
 
 ![看板-按负责人视图](screenshots/kanban-assignee.png)
 
+**看板-按阶段工作包视图** —— 按 7 个阶段工作包查看任务分布：
+
+![看板-按阶段工作包视图](screenshots/kanban-stage.png)
+
 ## 核心功能
 
 | 功能 | 说明 |
@@ -39,7 +43,8 @@
 | 记录管理 | 添加记录、只读/编辑切换、自定义统一 UI 确认删除对话框 |
 | 批量删除 | 表格多选后批量删除 |
 | 卡片配置 | 看板卡片显示字段自定义开关 |
-| 数据持久化 | 自动读取 `board.json` / `json/` 配置，改动实时同步浏览器 localStorage |
+| 数据持久化 | 自动读取 `board.json` / `json/kanban_meta.json` 配置，改动实时同步浏览器 localStorage |
+| 主题切换 | 日出日落自动主题 + 浅色/深色手动切换 |
 | 一键重置 | 恢复内置示例数据 |
 
 ## 快速开始
@@ -62,8 +67,21 @@
 
 - **配置文件支持**：
   - `board.json`: 存储根目录看板卡片初始数据。
-  - `json/`: 存放系统配置（如 `kanban_meta.json`, `fields.json`, `persons.json`, `statuses.json` 等）。
+  - `json/kanban_meta.json`: 系统配置（人员、状态、字段定义、阶段与工作包）。
 - **缓存与持久化**：
   - 改动自动持久化在浏览器 localStorage（key: `offline_board_cards_v3`）。
   - 点击工具栏「重置」可丢弃本地改动、恢复初始数据。
 - ⚠️ 局域网访问时**每台设备各自维护一份数据，互不同步**；如需多人共享同一份数据，需引入后端存储。
+
+## 项目结构
+
+```
+├── offline_board.html     # 主入口页面
+├── board.json             # 看板卡片初始数据
+├── css/styles.css         # 主看板样式
+├── js/                    # 模块化脚本（app/data/board/listbox/util）
+├── json/kanban_meta.json  # 人员/状态/字段/阶段配置
+├── kanban-skeleton/       # 从 skill 提取的看板设计骨架（参考资产）
+├── screenshots/           # 界面预览截图
+└── start.sh               # 局域网分享启动脚本
+```
